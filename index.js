@@ -7,6 +7,8 @@ const cors = require('cors');
 app.use(express.json());
 //  middleware para permitir la comunicacion entre diferentes origenes
 app.use(cors())
+// usar la carpeta dist para el frontend
+app.use(express.static('dist'))
 
 morgan.token("body", (req) => {
   return req.method === "POST" ? JSON.stringify(req.body) : '{}';
