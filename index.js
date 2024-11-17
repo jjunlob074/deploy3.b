@@ -102,7 +102,9 @@ app.post("/api/persons", (request, response) => {
   response.status(201).json(newPerson);
 });
 
-const PORT = 3001
+// aunque en el curso pone que coge la variable del process si la especificas aqui tal que asi tambien funciona
+// cogiendo primero la 3001
+const PORT = 3001 || process.env.PORT
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
