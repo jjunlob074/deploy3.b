@@ -7,6 +7,8 @@
     "start": "node index.js",
     "dev": "nodemon index.js",
     "test": "echo \"Error: no test specified\" && exit 1",
+    "lint": "eslint .",
+    "fix": "eslint . --fix",
     "build:ui": "rm -rf dist && cd ../../../fullstackopen/PART-2/phonebook && npm run build && cp -r dist ../../../PRUEBAREACT/proyectosfullstackopen/deploy3.b/",
     "deploy:full": "npm run build:ui && git add . && git commit -m uibuild && git push"
   },
@@ -20,5 +22,11 @@
     "mongoose": "^8.8.2",
     "morgan": "^1.10.0",
     "nodemon": "^3.1.7"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.15.0",
+    "@stylistic/eslint-plugin-js": "^2.11.0",
+    "eslint": "^9.15.0",
+    "globals": "^15.12.0"
   }
 }
