@@ -149,7 +149,7 @@ const errorHandler = (error, request, response, next) => {
 app.use(errorHandler);
 
 // Configuración y arranque del servidor
-const PORT = process.env.PORT || 3001;
+const PORT = 3001 || process.env.PORT;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
