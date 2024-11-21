@@ -1,33 +1,29 @@
+// Importar dependencias
+require('dotenv').config();
 const express = require("express");
 const morgan = require("morgan");
+const cors = require("cors");
+const Person = require("./models/person");
+
+// Configuración de la aplicación Express
 const app = express();
-const cors = require('cors');
 
-// middleware json.parser
+// Middleware para parsear el cuerpo de la solicitud como JSON
 app.use(express.json());
-//  middleware para permitir la comunicacion entre diferentes origenes
-app.use(cors())
-// usar la carpeta dist para el frontend
-app.use(express.static('dist'))
 
+// Middleware para permitir solicitudes desde diferentes orígenes (CORS)
+app.use(cors());
+
+// Middleware para servir archivos estáticos desde la carpeta 'dist' (Frontend)
+app.use(express.static('dist'));
+
+// Configuración de morgan para el registro de las solicitudes
 morgan.token("body", (req) => {
   return req.method === "POST" ? JSON.stringify(req.body) : '{}';
 });
-
-// middleware morgan
 app.use(morgan(":method :url :status :response-time ms :body"));
 
-let persons = [
-  { id: 1, name: "Arto Hellas", number: "040-123456" },
-  { id: 2, name: "Ada Lovelace", number: "39-44-5323523" },
-  { id: 3, name: "Dan Abramov", number: "12-43-234345" },
-  { id: 4, name: "Mary Poppendieck", number: "39-23-6423122" },
-];
-
-app.get("/", (request, response) => {
-  response.send("<h1>Welcome to Backend of Phonebook</h1>");
-});
-
+// Ruta principal para obtener información general sobre el phonebook
 app.get("/info", (request, response) => {
   const currentTime = new Date().toLocaleString("en-US", {
     weekday: "long",
@@ -40,71 +36,120 @@ app.get("/info", (request, response) => {
     timeZoneName: "long",
   });
 
-  response.send(`
-        <p>Phonebook has ${persons.length} entries.</p>
+  Person.countDocuments().then((count) => {
+    response.send(`
+        <p>Phonebook has ${count} entries.</p>
         <p>${currentTime}</p>
     `);
-});
-
-app.get("/api/persons", (request, response) => {
-  response.json(persons);
-});
-
-app.get("/api/persons/:id", (request, response) => {
-  const id = Number(request.params.id);
-  const personTarget = persons.find((person) => person.id === id);
-
-  if (!personTarget) {
-    return response.status(404).json({ error: "Person not found" });
-  }
-
-  response.json(personTarget);
-});
-
-app.delete("/api/persons/:id", (request, response) => {
-  const id = Number(request.params.id);
-  const personExists = persons.some((person) => person.id === id);
-
-  if (!personExists) {
-    return response.status(404).json({ error: "Person not found" });
-  }
-
-  // Eliminar la persona
-  persons = persons.filter((person) => person.id !== id);
-
-  // Reordenar los índices (si es necesario)
-  persons = persons.map((person, index) => {
-    person.id = index + 1;  // Reasignar id para que los índices sean consecutivos
-    return person;
   });
-
-  response.status(204).end();
 });
 
-app.post("/api/persons", (request, response) => {
+// Rutas para manejar personas
+
+// Obtener todas las personas
+app.get("/api/persons", (request, response, next) => {
+  Person.find({})
+    .then((persons) => {
+      response.json(persons);
+    })
+    .catch((error) => next(error));  // Pasar el error al siguiente middleware
+});
+
+// Obtener una persona por ID
+app.get("/api/persons/:id", (request, response, next) => {
+  const id = request.params.id;
+
+  Person.findById(id)
+    .then((person) => {
+      if (person) {
+        response.json(person);
+      } else {
+        response.status(404).json({ error: "Person not found" });
+      }
+    })
+    .catch((error) => next(error));  // Pasar el error al siguiente middleware
+});
+
+// Eliminar una persona por ID
+app.delete("/api/persons/:id", (request, response, next) => {
+  const id = request.params.id;
+
+  Person.findByIdAndDelete(id)
+    .then((result) => {
+      if (result) {
+        response.status(204).end();
+      } else {
+        response.status(404).json({ error: "Person not found" });
+      }
+    })
+    .catch((error) => next(error));  // Pasar el error al siguiente middleware
+});
+
+// Crear una nueva persona
+app.post("/api/persons", (request, response, next) => {
   const body = request.body;
 
   if (!body.name || !body.number) {
     return response.status(400).json({ error: "Name and number are required" });
   }
 
-  if (persons.some(person => person.name === body.name)) {
-    return response.status(400).json({ error: "Name already exists in the phonebook" });
-  }
-
-  const newPerson = {
-    id: persons.length + 1,
+  const person = new Person({
     name: body.name,
     number: body.number,
-  };
+  });
 
-  persons = persons.concat(newPerson);
-  response.status(201).json(newPerson);
+  person.save()
+    .then((newPerson) => {
+      console.log(`added ${newPerson.name} number ${newPerson.number} to phonebook`);
+      response.json(newPerson);
+    })
+    .catch((error) => next(error));  // Pasar el error al siguiente middleware
 });
 
-// aunque en el curso pone que coge la variable del process si la especificas aqui tal que asi tambien funciona
-// cogiendo primero la 3001
-const PORT = 3001 || process.env.PORT
+// Actualizar una persona por ID
+app.put("/api/persons/:id", (request, response, next) => {
+  const id = request.params.id;
+  const body = request.body;
+
+  if (!body.name || !body.number) {
+    return response.status(400).json({ error: "Name and number are required" });
+  }
+
+  Person.findByIdAndUpdate(id, body, { new: true })
+    .then((updatedPerson) => {
+      if (updatedPerson) {
+        response.json(updatedPerson);
+      } else {
+        response.status(404).json({ error: "Person not found" });
+      }
+    })
+    .catch((error) => next(error));  // Pasar el error al siguiente middleware
+});
+
+// Middleware para manejar rutas no conocidas (404)
+const unknownEndpoint = (request, response) => {
+  response.status(404).send({ error: 'unknown endpoint' });
+};
+app.use(unknownEndpoint);
+
+// Middleware para manejar errores
+const errorHandler = (error, request, response, next) => {
+  console.error(error.message);
+
+  if (error.name === 'CastError') {
+    return response.status(400).send({ error: 'malformatted id' });
+  }
+
+  if (error.name === 'ValidationError') {
+    return response.status(400).send({ error: error.message });
+  }
+
+  next(error);  // Pasa al controlador de errores predeterminado de Express
+};
+app.use(errorHandler);
+
+// Configuración y arranque del servidor
+const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
